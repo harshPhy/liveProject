@@ -1,0 +1,43 @@
+{
+  "language": "typescript",
+  "app": "npx ts-node main.ts",
+  "projectId": "9d1043e6-be98-4cc4-8e17-40cdfa85e2aa",
+  "sendCrashReports": "false",
+  "terraformProviders": [
+          {
+            "name": "aws",
+            "source": "hashicorp/aws",
+            "version": "~> 5.0"
+          }
+  ],
+  "terraformModules": [
+          { 
+            "name": "vpc",
+            "source": "terraform-aws-modules/vpc/aws",
+            "version": "6.5.0"
+          },
+          {
+            "name": "security-group",
+            "source": "terraform-aws-modules/security-group/aws",
+            "version": "5.3.1"
+          },
+          {
+            "name": "iam",
+            "source": "terraform-aws-modules/iam/aws",
+            "version": "6.2.3"
+          },
+          {
+            "name": "ecs-cluster",
+            "source": "terraform-aws-modules/ecs/aws",
+            "version": "6.7.0"
+          },
+          {
+            "name": "dyanamodb",
+            "source": "terraform-aws-modules/dynamodb-table/aws",
+            "version": "5.2.0"
+          }
+  ],
+  "context": {
+
+  }
+}
