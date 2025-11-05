@@ -155,6 +155,30 @@ export default class PetAppStack extends TerraformStack {
       policyArn: "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
     });
 
+    // Add CloudWatch Logs permissions for log group creation
+    const cloudwatchLogsPolicy = new IamPolicy(this, "petapp-cloudwatch-logs-policy", {
+      name: "petapp-cloudwatch-logs-policy",
+      policy: JSON.stringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Effect: "Allow",
+            Action: [
+              "logs:CreateLogGroup",
+              "logs:CreateLogStream",
+              "logs:PutLogEvents"
+            ],
+            Resource: "arn:aws:logs:*:*:log-group:/ecs/petapp*"
+          }
+        ]
+      })
+    });
+
+    new IamRolePolicyAttachment(this, "petapp-cloudwatch-logs-policy-attachment", {
+      role: taskExecutionRole.name,
+      policyArn: cloudwatchLogsPolicy.arn
+    });
+
     const taskRole = new IamRole(this, "petapp-task-role", {
       name: "petapp-task-role",
       assumeRolePolicy: JSON.stringify({

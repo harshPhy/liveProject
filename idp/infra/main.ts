@@ -18,7 +18,7 @@ new PetAppStack(app, "petapp", {
   publicSubnets: Fn.tolist(baseStack.vpc.publicSubnetsOutput),
   appSubnets: Fn.tolist(baseStack.vpc.privateSubnetsOutput),
   ecsClusterName: baseStack.ecsCluster.clusterName,
-  repository: "harshPhyliveProject",
+  repository: "harshPhy/liveProject",
   branch: "main",
 })
 
