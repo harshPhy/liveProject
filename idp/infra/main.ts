@@ -1,4 +1,4 @@
-import { App } from "cdktf";
+import { App, Fn } from "cdktf";
 import BaseStack from "./base";
 import PetAppStack from "./contrib/PetApp";
 
@@ -10,10 +10,16 @@ const baseStack = new BaseStack(app, "infra", {
 });
 
 // Create PetApp stack with reference to base stack
-// @ts-ignore
-const petAppStack = new PetAppStack(app, "petapp", {
+new PetAppStack(app, "petapp", {
   profile: "default",
-  baseStack: baseStack
-});
+  vpcId: baseStack.vpc.vpcIdOutput,
+  publicSecurityGroup: baseStack.publicSecurityGroup,
+  appSecurityGroup: baseStack.appSecurityGroup,
+  publicSubnets: Fn.tolist(baseStack.vpc.publicSubnetsOutput),
+  appSubnets: Fn.tolist(baseStack.vpc.privateSubnetsOutput),
+  ecsClusterName: baseStack.ecsCluster.clusterName,
+  repository: "liveProject",
+  branch: "main",
+})
 
 app.synth();

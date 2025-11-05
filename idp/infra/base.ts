@@ -15,9 +15,9 @@ interface BaseStackConfig {
 
 export default class BaseStack extends TerraformStack {
   public readonly vpc: Vpc;
-  public readonly publicSecurityGroups: SecurityGroup;
-  public readonly appSecurityGroups: SecurityGroup;
-  public readonly dataSecurityGroups: SecurityGroup
+  public readonly publicSecurityGroup: SecurityGroup;
+  public readonly appSecurityGroup: SecurityGroup;
+  public readonly dataSecurityGroup: SecurityGroup;
   public readonly ecsCluster: EcsCluster;
   // public readonly dynamoDB: DynamodbTable;
 
@@ -47,20 +47,21 @@ export default class BaseStack extends TerraformStack {
     });
     this.vpc = vpc;
     
-    const securityGroups: { [key: string]: SecurityGroup } = {};
+    const securityGroup: { [key: string]: SecurityGroup } = {};
 
 
-    securityGroups.public = new SecurityGroup(this, "public",{
+    securityGroup.public = new SecurityGroup(this, "public",{
       name: "idp-dev-public-sg",
       vpcId: vpc.vpcIdOutput,
       ingressWithSelf: [{ rule: "all-all" }],
+      egressWithSelf: [{ rule: "all-all" }],
       ingressCidrBlocks: ["0.0.0.0/0"],
       ingressRules: ["http-80-tcp", "https-443-tcp"],
       egressCidrBlocks: ["0.0.0.0/0"],
       egressRules: ["all-all"],
     })
 
-    securityGroups.app = new SecurityGroup(this, "app",{
+    securityGroup.app = new SecurityGroup(this, "app",{
       name: "idp-dev-app-sg",
       vpcId: vpc.vpcIdOutput,
       ingressWithSelf: [{ rule: "all-all" }],
@@ -68,12 +69,12 @@ export default class BaseStack extends TerraformStack {
       egressRules: ["all-all"],
       computedIngressWithSourceSecurityGroupId: [{
         rule: "all-all",
-        source_security_group_id: securityGroups.public.securityGroupIdOutput,
+        source_security_group_id: securityGroup.public.securityGroupIdOutput,
       }],
       numberOfComputedIngressWithSourceSecurityGroupId: 1
     })
 
-    securityGroups.data = new SecurityGroup(this, "data",{
+    securityGroup.data = new SecurityGroup(this, "data",{
       name: "idp-dev-data-sg",
       vpcId: vpc.vpcIdOutput,
       ingressWithSelf: [{ rule: "all-all" }],
@@ -81,14 +82,14 @@ export default class BaseStack extends TerraformStack {
       egressRules: ["all-all"],
       computedIngressWithSourceSecurityGroupId: [{
         rule: "all-all",
-        source_security_group_id: securityGroups.app.securityGroupIdOutput,
+        source_security_group_id: securityGroup.app.securityGroupIdOutput,
       }],
       numberOfComputedIngressWithSourceSecurityGroupId: 1
     })
- 
-    this.publicSecurityGroups = securityGroups.public;
-    this.appSecurityGroups = securityGroups.app;
-    this.dataSecurityGroups = securityGroups.data;
+
+    this.publicSecurityGroup = securityGroup.public;
+    this.appSecurityGroup = securityGroup.app;
+    this.dataSecurityGroup = securityGroup.data;
 
     // new IamServiceLinkedRole(this, "iam_service_ecs_linked_role", {
     //   awsServiceName: "ecs.amazonaws.com",

@@ -11,14 +11,22 @@ import { EcsService } from "@cdktf/provider-aws/lib/ecs-service";
 import { IamRole } from "@cdktf/provider-aws/lib/iam-role";
 import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy-attachment";
 import { CodebuildProject } from "@cdktf/provider-aws/lib/codebuild-project";
-import { S3Bucket } from "@cdktf/provider-aws/lib/s3-bucket";
+import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document";
+import { DataAwsCallerIdentity } from "@cdktf/provider-aws/lib/data-aws-caller-identity";
 
-import BaseStack from "../../base";
-
+import { CodebuildWebhook } from "@cdktf/provider-aws/lib/codebuild-webhook";
+import { SecurityGroup } from "../../.gen/modules/security-group";
 interface PetAppStackConfig {
   profile: string;
   region?: string;
-  baseStack: BaseStack;
+  vpcId: string;
+  publicSecurityGroup: SecurityGroup;
+  appSecurityGroup: SecurityGroup;
+  publicSubnets: string[] | undefined;
+  appSubnets: string[] | undefined;
+  ecsClusterName: string | undefined;
+  repository: string;
+  branch: string;
 }
 
 export default class PetAppStack extends TerraformStack {
@@ -40,6 +48,8 @@ export default class PetAppStack extends TerraformStack {
       region: config.region || "us-east-1",
       profile: config.profile,
     });
+
+    const callerIdentity = new DataAwsCallerIdentity(this, "current");
 
     // PetApp resources will be defined here
     const repository = new EcrRepository(this, "petapp-repo", {
@@ -196,14 +206,15 @@ export default class PetAppStack extends TerraformStack {
 
     const ecsService = new EcsService(this, "petapp-ecs-service", {
       name: "petapp-ecs-service",
-      cluster: config.baseStack.ecsCluster.clusterNameOutput,
+      cluster: config.ecsClusterName,
       taskDefinition: taskDefinition.arn,
       desiredCount: 1,
       launchType: "FARGATE",
+      forceNewDeployment: true,
       networkConfiguration: {
-        subnets: Fn.tolist(config.baseStack.vpc.publicSubnetsOutput),
-        securityGroups: [config.baseStack.publicSecurityGroups.securityGroupIdOutput],
-        assignPublicIp: false,
+        subnets: Fn.tolist(config.publicSubnets),
+        securityGroups: [config.publicSecurityGroup.securityGroupIdOutput],
+        assignPublicIp: true,
       },
 
       // loadBalancer: [
@@ -219,57 +230,128 @@ export default class PetAppStack extends TerraformStack {
 
 
     // Codebuild project and S3 bucket can be defined here for CI/CD
-
-    const artifactBucket = new S3Bucket(this, "petapp-artifact-bucket", {
-      bucketPrefix: "petapp-artifacts-",
-    });
-
-    const codeBuildRole = new IamRole(this, "petapp-codebuild-role", {
-      name: "petapp-codebuild-role",
-      assumeRolePolicy: JSON.stringify({
-        Version: "2012-10-17",
-        Statement: [
-          {
-            Action: "sts:AssumeRole",
-            Effect: "Allow",
-            Principal: {
-              Service: "codebuild.amazonaws.com",
+    const codeBuildServiceRoleAssumeRolePolicyDocument = new DataAwsIamPolicyDocument(this, "codebuildServiceRoleAssumeRolePolicyDocument", {
+      statement: [
+        {
+          effect: "Allow",
+          actions: ["sts:AssumeRole"],
+          principals: [
+            {
+              type: "Service",
+              identifiers: ["codebuild.amazonaws.com"],
             },
-          },
-        ],
-      }),
+          ],
+        },
+      ],
     });
 
-    new IamRolePolicyAttachment(this, "codeBuildS3PolicyPetApp", {
-      role: codeBuildRole.name!,
-      policyArn: "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+    const codebuildServiceRole = new IamRole(this, "petAppcodeBuildServiceRole", {
+      name: "petAppcodeBuildServiceRole",
+      assumeRolePolicy: codeBuildServiceRoleAssumeRolePolicyDocument.json,
     });
 
-    new IamRolePolicyAttachment(this, "codeBuildLogsPolicyPetApp", {
-      role: codeBuildRole.name!,
-      policyArn: "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
+    const codebuildServiceRolePolicy = new IamPolicy(this, "codebuildServiceRolePolicy", {
+      policy: Fn.jsonencode({
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "cloudwatch:*",
+              "logs:CreateLogGroup",
+              "logs:CreateLogStream",
+              "logs:PutLogEvents",
+              "s3:PutObject",
+              "s3:GetObject",
+              "s3:GetObjectVersion",
+              "s3:GetBucketAcl",
+              "s3:GetBucketLocation",
+
+              "ec2:CreateNetworkInterface",
+              "ec2:DescribeNetworkInterfaces",
+              "ec2:DeleteNetworkInterface",
+              "ec2:DescribeSubnets",
+              "ec2:DescribeSecurityGroups",
+              "ec2:DescribeVpcs",
+              "ec2:CreateNetworkInterfacePermission",
+
+              "ecs:UpdateService"
+            ],
+            "Resource": ["*"]
+          }
+        ]
+      })
     });
 
-    new CodebuildProject(this, "petapp-codebuild-project", {
+    const customCodebuildPolicyAttachment = new IamRolePolicyAttachment(this,"codebuildServiceRolePolicyAttachement", {
+      role: codebuildServiceRole.name,
+      policyArn: codebuildServiceRolePolicy.arn
+    });
+
+    const ecrCodebuildPolicyAttachment = new IamRolePolicyAttachment(this,"codebuildServiceRoleRolePolicyAttachmentAmazonEC2ContainerRegistryFullAccess", {
+      role: codebuildServiceRole.name,
+      policyArn: "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess"
+    });
+
+    const adminCodebuildPolicyAttachment = new IamRolePolicyAttachment(this, "codebuildServiceRoleRolePolicyAttachmentAdministratorAccess", {
+      role: codebuildServiceRole.name,
+      policyArn: "arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess",
+    });
+
+    const codebuildProject = new CodebuildProject(this, "project", {
+      dependsOn: [customCodebuildPolicyAttachment, ecrCodebuildPolicyAttachment, adminCodebuildPolicyAttachment ],
       name: "petapp-codebuild-project",
-      serviceRole: codeBuildRole.arn,
-      artifacts: {
-        type: "S3",
-        location: artifactBucket.bucket,
-        packaging: "ZIP",
-        name: "build-artifact.zip",
-      },
+      serviceRole: codebuildServiceRole.arn,
+      artifacts: {type:"NO_ARTIFACTS"},
       environment: {
-        computeType: "BUILD_GENERAL1_SMALL",
-        image: "aws/codebuild/standard:7.0",
-        type: "LINUX_CONTAINER"
+        computeType: 'BUILD_GENERAL1_SMALL',
+        image: 'aws/codebuild/standard:6.0',
+        type: 'LINUX_CONTAINER',
+        imagePullCredentialsType: 'CODEBUILD',
+        privilegedMode: true
       },
       source: {
         type: "GITHUB",
-        location: "https://github.com/harshPhy/liveProject.git",
-        buildspec: "apps/petapp/buildspec.yml",
-      },
-    });
+        location: `https://github.com/${config.repository}.git`,
+        gitCloneDepth: 1,
+        gitSubmodulesConfig: {
+          fetchSubmodules: true
+        },
+        reportBuildStatus: true,
+        buildspec:`
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin ${callerIdentity.accountId}.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
+  build:
+    commands:
+      - echo Building the Docker image...
+      - docker build -t ${repository.repositoryUrl}:latest .
+  post_build:
+    commands:
+      - echo Pushing the Docker image...
+      - docker push ${repository.repositoryUrl}:latest
+      - aws ecs update-service --cluster ${config.ecsClusterName} --service ${ecsService.name} --force-new-deployment
+`        
+      }
+    })
+
+    new CodebuildWebhook(this, "petapp-codebuild-webhook", {
+      projectName: codebuildProject.name,
+      buildType: "BUILD",
+      filterGroup: [{
+        filter: [{
+          type: "EVENT",
+          pattern: "PUSH",
+        },{
+          type: "HEAD_REF",
+          pattern: config.branch,
+        }]
+      }]
+    });
   }
 }
