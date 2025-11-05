@@ -179,7 +179,7 @@ export default class PetAppStack extends TerraformStack {
       policyArn: cloudwatchLogsPolicy.arn
     });
 
-    const taskRole = new IamRole(this, "petapp-task-role", {
+    const taskRole = new IamRole(this, "petapp-role", {
       name: "petapp-task-role",
       assumeRolePolicy: JSON.stringify({
         Version: "2012-10-17",
