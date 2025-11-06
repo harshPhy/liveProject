@@ -22,4 +22,8 @@ new PetAppStack(app, "petapp", {
   branch: "main",
 })
 
+new BaseStack(app, "hello", {
+  profile: "default"
+})
+
 app.synth();
