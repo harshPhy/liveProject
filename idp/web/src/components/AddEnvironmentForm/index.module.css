@@ -1,0 +1,101 @@
+.outerContainer {
+  padding: 5px;
+}
+
+.innerContainer {
+  width: 100%;
+  border-width: 5px;
+  border-radius: 5px;
+  border-color: #ddd;
+  background-color: #fcfcfccc;
+  border: 1px solid gray;
+}
+
+.form {
+  display: flex;
+}
+
+.requiredFieldsContainer {
+  flex-grow: 1;
+  border-right: 1px solid gray;
+}
+
+.requiredFieldsContainer,
+.formConfigTableContainer {
+  padding: 20px;
+}
+
+
+.field {
+  margin-bottom: 12px;
+}
+
+.label {
+  display: block;
+}
+
+.label,
+.tableHeading {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.requiredField,
+.configField {
+  width: 100%;
+}
+
+.errorMessage {
+  font-size: 0.8rem;
+  color: rgb(255, 66, 72);
+  padding: 2px;
+  border: 1px solid rgb(255, 66, 72);;
+  text-align: center;
+  border-top: none;
+  border-bottom-left-radius: 2px;
+  border-bottom-right-radius: 2px;
+}
+
+.formConfigTableContainer {
+  flex-grow: 2;
+}
+
+.tableHeading {
+  width: 50%;
+}
+
+.configFieldCell {
+  vertical-align: top;
+}
+
+.removeRowButton {
+  cursor: pointer;
+}
+
+.addRowButtonContainer {
+  padding: 2px;
+}
+
+.addRowButton {
+  width: 100%;
+}
+
+.footer {
+  border-top: 1px solid gray;
+  padding: 5px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  padding: 10px;
+  text-align: left;
+}
+
+.submitButtonContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px;
+}

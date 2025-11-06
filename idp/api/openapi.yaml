@@ -1,0 +1,113 @@
+openapi: 3.0.3
+info:
+  title: BuildIT's Internal Developer Platform
+  version: '1.0'
+  description: >-
+    API for BuildIT's IDP, as part of Manning's _Internal Developer Platform on
+    AWS_ liveProject
+  license:
+    name: MIT
+  contact:
+    name: Daniel Li
+    email: dan@danyll.com
+servers:
+  - url: 'http://localhost:3000'
+    description: Local
+paths:
+  /healthz:
+    get:
+      summary: Healthcheck
+      tags: []
+      responses:
+        '200':
+          description: OK
+      operationId: get-healthz
+      description: >-
+        The healthcheck endpoints is used to check if the API is up and running.
+        A `200` response does not mean every endpoints are operational, since
+        that depends on external platforms like DynamoDB.
+  /environments:
+    get:
+      summary: Retrieve all environments
+      tags: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    environment:
+                      type: string
+                    stack:
+                      type: string
+                    config:
+                      type: object
+                      additionalProperties:
+                        type: string
+                    status:
+                      type: string
+                    note:
+                      type: string
+      operationId: get-environments
+      description: ''
+    post:
+      summary: Create new environment
+      operationId: post-environments
+      responses:
+        '202':
+          description: Accepted
+        '400':
+          description: Bad Request
+        '409':
+          description: Conflict
+      description: ''
+      requestBody:
+        content:
+          application/json:
+            schema:
+              description: ''
+              type: object
+              x-examples:
+                example-1:
+                  environment: test
+                  stack: PetApp
+                  config:
+                    branch: develop
+              properties:
+                environment:
+                  type: string
+                  minLength: 1
+                stack:
+                  type: string
+                  minLength: 1
+                config:
+                  type: object
+                  additionalProperties:
+                    type: string
+              required:
+                - environment
+                - stack
+                - config
+  '/environments/{name}':
+    delete:
+      summary: Delete an environment
+      operationId: 'delete-environments-:name'
+      responses:
+        '202':
+          description: Accepted
+        '404':
+          description: Not Found
+      parameters: []
+    parameters:
+      - schema:
+          type: string
+        name: name
+        in: path
+        required: true
+        description: Name of environment
+components:
+  schemas: {}

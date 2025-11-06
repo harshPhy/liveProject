@@ -1,0 +1,40 @@
+.container {
+  width: 90%;
+  max-width: 768px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fcfcfc;
+  margin-left: 5px;
+  margin-right: 5px;
+  padding: 20px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: gray;
+  border-radius: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.refresh {
+  text-align: right;
+  font-size: 0.9rem;
+}
+
+.lastRefreshTime {
+  white-space: pre;
+  font-family: 'Inconsolata', monospace;
+  font-weight: 700;
+}
+
+.nextUpdate {
+  font-size: 0.8rem;
+}

@@ -1,0 +1,61 @@
+.row__expanded > td {
+  border-bottom: none !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.status__registered:before,
+.status__committed:before,
+.status__deployed:before,
+.status__failed:before,
+.status__marked:before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-style: solid;
+  border-radius: 50%;
+  border-width: 2px;
+  margin-right: 10px;
+  box-sizing: border-box;
+}
+
+.status__registered:before {
+  background: white;
+  border-style: dotted;
+  border-color: #666;
+}
+
+.status__committed:before {
+  border-color: rgb(97, 92, 0);
+  background-color: rgb(255, 242, 0);
+}
+
+.status__deployed:before {
+  border-color: rgb(0, 193, 151);
+  background-color: rgb(0, 255, 200);
+}
+
+.status__failed:before {
+  border-color: rgb(255, 66, 72);
+  background-color: rgb(255, 107, 112);
+}
+
+.status__marked:before {
+  border-color: rgb(121, 121, 121);
+  background-color: rgb(171, 171, 171);
+}
+
+.registered__details > td,
+.committed__details > td,
+.deployed__details > td,
+.failed__details > td,
+.marked__details > td {
+  background-color: #f0f0f0;
+  border-style: solid;
+  border-width: 5px;
+  border-color: #ddd;
+  border-top: none;
+  border-bottom-left-radius: 15px;
+  border-bottom-right-radius: 15px;
+}

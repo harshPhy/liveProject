@@ -1,0 +1,263 @@
+import { spawn } from 'child_process';
+import fs from 'fs/promises';
+import path from 'path';
+import express, { json } from 'express';
+import cors from 'cors';
+import * as OpenApiValidator from 'express-openapi-validator';
+import { DeleteItemCommand, DynamoDBClient, PutItemCommand, ScanCommand, UpdateItemCommand, UpdateItemCommandOutput } from "@aws-sdk/client-dynamodb";
+
+import git, { resetToRemote } from './git';
+import { EnvironmentStatus, UpdateEnvironmentStateOptions } from './interface'
+import { absoluteTerraformDir } from './terraform'
+import {
+  addCDKSnippetToFile,
+  formatDynamoDBEnvironmentForResponse,
+  formatEnvironmentForDynamoDB,
+  generateCDKStackCodeSnippet,
+  generateUpdateEnvironmentParams,
+  removeCDKSnippetFromFile,
+} from './utils';
+
+const port = process.env.PORT || 3456;
+const dynamodbTablename = process.env.DYNAMODB_TABLE_NAME;
+
+if (!dynamodbTablename) {
+  process.exit(1);
+}
+
+const client = new DynamoDBClient({
+  region: "us-east-1"
+});
+
+function updateEnvironment(name: string, options: UpdateEnvironmentStateOptions) {
+  const updateEnvironmentParams = generateUpdateEnvironmentParams(name, options)
+  return client.send(new UpdateItemCommand(updateEnvironmentParams));
+}
+
+const app = express()
+app.use(cors({
+  origin: process.env.APP_ORIGIN || false,
+}))
+app.use(json())
+app.use(
+  OpenApiValidator.middleware({
+    apiSpec: path.resolve(__dirname, '../openapi.yaml'),
+  }),
+);
+
+app.get('/healthz', (_, res) => {
+  res.status(200).end()
+});
+
+app.post('/environments', async (req, res) => {
+  
+  const params = {
+    Item: formatEnvironmentForDynamoDB({
+      ...req.body,
+      status: EnvironmentStatus.REGISTERED,
+    }),
+    TableName: dynamodbTablename,
+    ConditionExpression: "attribute_not_exists(id)",
+  }
+
+  try {
+    await client.send(new PutItemCommand(params));
+  } catch (err: any) {
+    console.error('Error creating environment:', err);
+    // If environment with the same name already exists
+    if (err.name === 'ConditionalCheckFailedException') {
+      res.status(409).end();
+      return;
+    }
+    // Any other kinds of errors
+    res.status(500).end();
+    return;
+  }
+
+  res.status(202).end();
+
+  try {
+    await resetToRemote()
+    const fileContents = await fs.readFile(`${absoluteTerraformDir}/main.ts`, { encoding: 'utf8' })
+    const cdkSnippet = generateCDKStackCodeSnippet(req.body)
+    if (!fileContents.includes(cdkSnippet)) {
+      await addCDKSnippetToFile(fileContents, cdkSnippet, req.body.stack);
+      await git.add('./*').commit(`Add environment ${req.body.environment}`).push('origin', 'main');
+      await updateEnvironment(req.body.environment, {
+        status: 'COMMITTED',
+        tableName: dynamodbTablename,
+      })
+    }
+    
+    const childProcess = spawn('cdktf', ['deploy', req.body.environment, '--auto-approve', '--ignore-missing-stack-dependencies'], { cwd: absoluteTerraformDir, stdio: 'pipe' });
+
+    // In our infra code, we are outputing the DNS name of our load balancer.
+    // We will store that here and display on the frontend, so the developers
+    //   would know how to reach their environment
+    let lastStdOutLines: string[] = [];
+    const LINES_TO_STORE = 1;
+
+    childProcess.stderr.on('data', (data: Buffer) => {
+      console.log(`stderr: ${data}`);
+    })
+
+    childProcess.stdout.on('data', (data: Buffer) => {
+      console.log(`stdout: ${data}`);
+      lastStdOutLines.push(data.toString());
+      if (lastStdOutLines.length > LINES_TO_STORE) {
+        lastStdOutLines.shift()
+      }
+    })
+
+    childProcess.on('close', async (code) => {
+      if (code !== 0) {
+        updateEnvironment(req.body.environment, {
+          status: 'FAILED',
+          tableName: dynamodbTablename,
+          note: `cdktf deploy returned with code ${code}`,
+        })
+        return;
+      }
+
+      updateEnvironment(req.body.environment, {
+        status: 'DEPLOYED',
+        tableName: dynamodbTablename,
+        note: lastStdOutLines.join("\n"),
+      })
+    });
+  } catch (err: any) {
+    console.error(err);
+    updateEnvironment(req.body.environment, {
+      status: 'FAILED',
+      tableName: dynamodbTablename,
+      note: (err as Error).toString()
+    })
+    return;
+  }
+});
+
+app.get('/environments', async (_, res) => {
+  const params = {
+    TableName: dynamodbTablename,
+  }
+  let data;
+  try {
+    data = await client.send(new ScanCommand(params))
+  } catch (err: any) {
+    res.status(500).end();
+    return;
+  };
+
+  if (data && data.Items) {
+    res.status(200).json(data.Items.map(formatDynamoDBEnvironmentForResponse));
+    return;
+  }
+  res.status(500).end();
+});
+
+app.delete('/environments/:name', async (req, res) => {
+
+  let environmentData: UpdateItemCommandOutput;
+  // Mark environment for deletion
+  try {
+    environmentData = await updateEnvironment(req.params.name, {
+      status: 'MARKED',
+      tableName: dynamodbTablename,
+    })
+  } catch (err: any) {
+    // Environment with the name does not exists
+    if (err.name === 'ConditionalCheckFailedException') {
+      res.status(404).end();
+      return;
+    }
+    res.status(500).end();
+    return;
+  }
+  res.status(202).end();
+
+  const childProcess = spawn('cdktf', ['destroy', req.params.name, '--auto-approve', '--ignore-missing-stack-dependencies'], { cwd: absoluteTerraformDir, stdio: 'pipe' });
+
+  childProcess.stderr.on('data', (data) => {
+    console.log(`stderr: ${data}`);
+  })
+
+  childProcess.stdout.on('data', (data) => {
+    console.log(`stdout: ${data}`);
+  })
+
+  childProcess.on('close', async (code) => {
+    if (code !== 0) {
+      updateEnvironment(req.params.name, {
+        status: 'MARKED',
+        tableName: dynamodbTablename,
+        note: `cdktf destroy returned with code ${code}`,
+      })
+      return;
+    }
+
+    if (environmentData.Attributes) {
+      try {
+        await resetToRemote()
+        const fileContents = await fs.readFile(`${absoluteTerraformDir}/main.ts`, { encoding: 'utf8' })
+        const oldEnvironment = formatDynamoDBEnvironmentForResponse(environmentData.Attributes);
+        const cdkSnippet = generateCDKStackCodeSnippet(oldEnvironment)
+        if (fileContents.includes(cdkSnippet)) {
+          await removeCDKSnippetFromFile(fileContents, cdkSnippet);
+          await git.add('./*').commit(`Remove environment ${req.params.name}`).push('origin', 'main');
+        }
+        await updateEnvironment(req.params.name, {
+          status: 'MARKED',
+          tableName: dynamodbTablename,
+        })
+      } catch (err: any) {
+        console.error(err);
+        await updateEnvironment(req.params.name, {
+          status: 'MARKED',
+          tableName: dynamodbTablename,
+          note: (err as Error).toString(),
+        })
+        return;
+      }
+    } else {
+      await updateEnvironment(req.params.name, {
+        status: 'MARKED',
+        tableName: dynamodbTablename,
+        note: 'environmentData is undefined',
+      })
+    }
+
+    // Actually delete the item from DynamoDB
+    const params = {
+      Key: {
+        "id": {
+          S: req.params.name,
+        },
+      },
+      TableName: dynamodbTablename,
+      ConditionExpression: "attribute_exists(id)", // Only delete if it exists
+    }
+    try {
+      await client.send(new DeleteItemCommand(params))
+    } catch (err: any) {
+      console.error(err);
+      return;
+    }
+  })
+})
+
+const server = app.listen(port, () => {
+  console.log(`API listening on port ${port}`)
+})
+
+function signalHandler(signal: string) {
+  console.log(`${signal} received. Shutting down.`);
+  server.close(() => {
+    console.log('Express server closed. Exiting.');
+    process.exit(0);
+  })
+}
+
+process.on('SIGTERM', () => signalHandler('SIGTERM'));
+process.on('SIGINT', () => signalHandler('SIGINT'));
+
+process.on('warning', e => console.error(e.stack));
