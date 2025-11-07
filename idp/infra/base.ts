@@ -1,7 +1,7 @@
 import { Construct } from "constructs";
 import { TerraformStack } from "cdktf";
 import { AwsProvider } from "@cdktf/provider-aws/lib/provider";
-// import { DynamodbTable } from "@cdktf/provider-aws/lib/dynamodb-table";
+import { DynamodbTable } from "@cdktf/provider-aws/lib/dynamodb-table";
 // import { Instance } from "@cdktf/provider-aws/lib/instance";
 import { EcsCluster } from "./.gen/modules/ecs-cluster";
 // import { IamServiceLinkedRole } from "@cdktf/provider-aws/lib/iam-service-linked-role";
@@ -19,7 +19,7 @@ export default class BaseStack extends TerraformStack {
   public readonly appSecurityGroup: SecurityGroup;
   public readonly dataSecurityGroup: SecurityGroup;
   public readonly ecsCluster: EcsCluster;
-  // public readonly dynamoDB: DynamodbTable;
+  public readonly dynamoDB: DynamodbTable;
 
   constructor(scope: Construct, name: string, config: BaseStackConfig) {
     super(scope, name);
@@ -112,22 +112,22 @@ export default class BaseStack extends TerraformStack {
 
     this.ecsCluster = ecsCluster;
 
-    // const dynamoDB = new DynamodbTable(this, "dynamodb_table", {
-    //   name: "idp-dev-dynamodb-table",
-    //   billingMode: "PAY_PER_REQUEST",
-    //   hashKey: "id",
-    //   attribute: [
-    //     {
-    //       name: "id",
-    //       type: "S"
-    //     }
-    //   ],
-    //   tags: {
-    //     Environment: "development"
-    //   }
-    // });
+    const dynamoDB = new DynamodbTable(this, "dynamodb_table", {
+      name: "idp-dev-dynamodb-table",
+      billingMode: "PAY_PER_REQUEST",
+      hashKey: "environment",
+      attribute: [
+        {
+          name: "environment",
+          type: "S"
+        }
+      ],
+      tags: {
+        Environment: "development"
+      }
+    });
 
-    // this.dynamoDB = dynamoDB;
+    this.dynamoDB = dynamoDB;
 
     // const ami = new DataAwsAmi(this, "latest-amazon-linux-2-ami", {
     //   mostRecent: true,

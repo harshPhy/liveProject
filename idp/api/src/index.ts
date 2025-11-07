@@ -82,10 +82,12 @@ app.post('/environments',
     } catch (err: any) {
       // If environment with the same name already exists
       if (err.name === 'ConditionalCheckFailedException') {
+        console.log(`Environment ${req.body.environment} already exists`);
         res.status(409).end();
         return;
       }
       // Any other kinds of errors
+      console.error('Error creating environment in DynamoDB:', err);
       res.status(500).end();
       return;
     }
@@ -130,6 +132,7 @@ app.post('/environments',
 
       childProcess.on('close', async (code) => {
         if (code !== 0) {
+          console.error(`cdktf deploy failed for ${req.body.environment} with code ${code}`);
           updateEnvironment(req.body.environment, {
             status: 'FAILED',
             tableName: dynamodbTablename,
@@ -163,6 +166,7 @@ app.get('/environments', async (_, res) => {
   try {
     data = await client.send(new ScanCommand(params))
   } catch (err: any) {
+    console.error('Error scanning environments from DynamoDB:', err);
     res.status(500).end();
     return;
   };
@@ -171,6 +175,7 @@ app.get('/environments', async (_, res) => {
     res.status(200).json(data.Items.map(formatDynamoDBEnvironmentForResponse));
     return;
   }
+  console.error('DynamoDB scan returned no items');
   res.status(500).end();
 });
 
@@ -180,12 +185,15 @@ app.delete('/environments/:name',
 
     const environment = await getEnvironment(req.params.name, dynamodbTablename, client)
     if (!environment) {
+      console.log(`Environment ${req.params.name} not found`);
       return res.status(404).end();
     }
     if (!environment.owner) {
+      console.error(`Environment ${req.params.name} has no owner`);
       return res.status(500).end();
     }
     if (environment.owner !== (req.user as User).username) {
+      console.log(`User ${(req.user as User).username} not authorized to delete environment ${req.params.name} owned by ${environment.owner}`);
       return res.status(403).end();
     }
 
@@ -199,9 +207,11 @@ app.delete('/environments/:name',
     } catch (err: any) {
       // Environment with the name does not exists
       if (err.name === 'ConditionalCheckFailedException') {
+        console.log(`Environment ${req.params.name} does not exist for deletion`);
         res.status(404).end();
         return;
       }
+      console.error('Error marking environment for deletion:', err);
       res.status(500).end();
       return;
     }
@@ -219,6 +229,7 @@ app.delete('/environments/:name',
 
     childProcess.on('close', async (code) => {
       if (code !== 0) {
+        console.error(`cdktf destroy failed for ${req.params.name} with code ${code}`);
         updateEnvironment(req.params.name, {
           status: 'MARKED',
           tableName: dynamodbTablename,
