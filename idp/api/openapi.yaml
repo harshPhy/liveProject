@@ -26,6 +26,18 @@ paths:
         The healthcheck endpoints is used to check if the API is up and running.
         A `200` response does not mean every endpoints are operational, since
         that depends on external platforms like DynamoDB.
+  /token:
+    post:
+      summary: Login
+      tags: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+      operationId: post-token
+      description: >-
+        Obtain a JSON Web Token (JWT) that can be used to authenticate subsequent requests
   /environments:
     get:
       summary: Retrieve all environments
@@ -57,11 +69,15 @@ paths:
     post:
       summary: Create new environment
       operationId: post-environments
+      security:
+        - bearerAuth: []
       responses:
         '202':
           description: Accepted
         '400':
           description: Bad Request
+        '401':
+          description: Unauthorized
         '409':
           description: Conflict
       description: ''
@@ -96,9 +112,15 @@ paths:
     delete:
       summary: Delete an environment
       operationId: 'delete-environments-:name'
+      security:
+        - bearerAuth: []
       responses:
         '202':
           description: Accepted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
         '404':
           description: Not Found
       parameters: []
@@ -111,3 +133,8 @@ paths:
         description: Name of environment
 components:
   schemas: {}
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

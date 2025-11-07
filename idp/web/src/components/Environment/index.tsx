@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import axios from 'axios';
+import { UserContext } from '../../contexts/UserContext'
 import EnvironmentConfig from '../../types/EnvironmentConfig';
 import EnvironmentState from '../../types/EnvironmentState';
 import './index.css'
@@ -7,6 +8,7 @@ import styles from './index.module.css'
 
 export default function Environment(props: { data: EnvironmentState }) {
 
+  const { userState } = useContext(UserContext);
   const [expanded, setExpanded] = useState(false);
   const [canSubmit, setCanSubmit] = useState(true);
 
@@ -19,7 +21,11 @@ export default function Environment(props: { data: EnvironmentState }) {
     setCanSubmit(false)
 
     try {
-      const response = await axios.delete(`${process.env.REACT_APP_API_URL}/environments/${props.data.name}`);
+      const response = await axios.delete(`${process.env.REACT_APP_API_URL}/environments/${props.data.name}`, {
+        headers: {
+          'Authorization': `Bearer ${userState.token}`
+        }
+      });
       if (response.status !== 200 && response.status !== 202) {
         setCanSubmit(true)
       }
@@ -31,11 +37,12 @@ export default function Environment(props: { data: EnvironmentState }) {
     <tr className={`${styles.row} ${props.data.status.toLowerCase()}__row ${expanded ? 'row__expanded' : ''}`} onClick={handleTrClick}>
       <td>{props.data.name}</td>
       <td>{props.data.stack}</td>
+      <td>{props.data.owner}</td>
       <td className={`status__${props.data.status.toLowerCase()}`}>{props.data.status}</td>
     </tr>
     {expanded &&
       <tr className={`${styles.details} ${props.data.status.toLowerCase()}__details`}>
-        <td colSpan={3}>
+        <td colSpan={4}>
           <div>
             {props.data.config &&
               <table className={styles.configTable}>
@@ -56,7 +63,7 @@ export default function Environment(props: { data: EnvironmentState }) {
               </table>
             }
             <p className={styles.notes}>{props.data.note || '<blank>'}</p>
-            <button disabled={!canSubmit || props.data.status !== 'DEPLOYED'} onClick={handleDestroyButtonClick}>Destroy</button>
+            <button disabled={!(canSubmit && props.data.status === 'DEPLOYED' && props.data.owner === userState.username)} onClick={handleDestroyButtonClick}>Destroy</button>
           </div>
         </td>
       </tr>}

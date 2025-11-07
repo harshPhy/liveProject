@@ -12,6 +12,7 @@ export interface Environment {
   environment: string;
   stack: string;
   status: keyof typeof EnvironmentStatus;
+  owner: string;
   config: { [key: string]: string };
   note?: string;
 }

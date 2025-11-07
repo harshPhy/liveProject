@@ -1,0 +1,33 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.title {
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.8rem;
+}
+
+.field {
+  margin-bottom: 10px;
+}
+
+.label {
+  display: block;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.errorMessage {
+  font-size: 0.8rem;
+  color: rgb(255, 66, 72);
+  padding: 2px;
+  border: 1px solid rgb(255, 66, 72);;
+  text-align: center;
+  border-top: none;
+  border-bottom-left-radius: 2px;
+  border-bottom-right-radius: 2px;
+}

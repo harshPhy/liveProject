@@ -1,0 +1,21 @@
+.container {
+  display: inline-block;
+  transform: translateZ(1px);
+}
+.inside {
+  background-color: gray;
+  display: inline-block;
+  border-radius: 50%;
+  animation: spinner 1s cubic-bezier(.68,-0.55,.27,1.55) infinite;
+  width: 18px;
+  height: 18px;
+}
+
+@keyframes spinner {
+    0% {
+      transform: rotateY(0deg);
+    }
+    100% {
+      transform: rotateY(360deg);
+    }
+}

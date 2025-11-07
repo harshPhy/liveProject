@@ -1,15 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import axios from 'axios';
+import { UserContext } from "../../contexts/UserContext";
 import EnvironmentState from '../../types/EnvironmentState';
+import Login from '../Login'
+import Spinner from '../Spinner';
 import EnvironmentList from '../EnvironmentList'
 import styles from './index.module.css'
 
 const REFRESH_INTERVAL = 10
 
 function App() {
+  const { userState, logOut } = useContext(UserContext);
   const [timeTilRefresh, setTimeTilRefresh] = useState(REFRESH_INTERVAL);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
   const [environments, setEnvironments] = useState([] as EnvironmentState[]);
+
+  function handleLogOut() {
+    logOut()
+  }
 
   const syncEnvironment = async () => {
     try {
@@ -42,20 +50,32 @@ function App() {
     }, 1000);
     return () => clearTimeout(timer);
   });
-  return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>Internal Developer Platform (IDP)</h1>
-        <aside className={styles.refresh}>
-          <div>Last updated at <span className={styles.lastRefreshTime}>{(new Date(lastRefresh).toLocaleTimeString())}</span></div>
-          <div className={styles.nextUpdate}>Next update in {timeTilRefresh}s</div>
-        </aside>
+
+  if (!userState.loaded) {
+    return (
+    <div className={styles.spinnerContainer}>
+      <Spinner />
+    </div>)
+  }
+
+  if (userState.token) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>Internal Developer Platform (IDP)</h1>
+          <aside className={styles.refresh}>
+            <div>Last updated at <span className={styles.lastRefreshTime}>{(new Date(lastRefresh).toLocaleTimeString())}</span></div>
+            <div className={styles.nextUpdate}>Next update in {timeTilRefresh}s</div>
+          </aside>
+          <button onClick={handleLogOut}>Log Out</button>
+        </div>
+        <main className={styles.main}>
+          <EnvironmentList environments={environments} />
+        </main>
       </div>
-      <main className={styles.main}>
-        <EnvironmentList environments={environments} />
-      </main>
-    </div>
-  );
+    );
+  }
+  return <Login />;
 }
 
 export default App;

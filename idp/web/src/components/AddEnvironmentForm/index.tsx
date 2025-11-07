@@ -1,9 +1,11 @@
 
-import React from 'react';
+import React, { useContext } from 'react';
 import { Formik, Field, Form, ErrorMessage, FieldArray } from 'formik';
 import axios from 'axios';
+import { UserContext } from '../../contexts/UserContext'
 import EnvironmentDefinition from '../../types/EnvironmentDefinition';
 import EnvironmentConfig from '../../types/EnvironmentConfig';
+import { validateNotEmpty } from '../../utils'
 import styles from './index.module.css';
 
 function getInitialValues(): EnvironmentDefinition {
@@ -15,20 +17,21 @@ function getInitialValues(): EnvironmentDefinition {
 }
 
 function validateName(value?: string) {
-  if (value?.toLowerCase() !== value) {
+  if (!value) {
+    return 'Cannot be empty'
+  }
+  if (value.toLowerCase() !== value) {
     return 'Uppercase characters not allowed'
   }
-  const length = value?.trim()?.length;
+  const length = value.trim().length;
   if (length && length > 32) {
     return 'Max. 32 characters allowed'
   }
   return value && value.match(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/) ? undefined : 'Name should match /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/'
 }
-function validateNotEmpty(value?: string) {
-  return value && value.trim().length > 0 ? undefined : 'Cannot be empty'
-}
 
 export default function AddEnvironmentForm() {
+  const { userState } = useContext(UserContext);
   return (
     <div className={styles.outerContainer}>
       <div className={styles.innerContainer}>
@@ -44,7 +47,11 @@ export default function AddEnvironmentForm() {
               }), {})
             }
             try {
-              const response = await axios.post(`${process.env.REACT_APP_API_URL}/environments`, transformedValues);
+              const response = await axios.post(`${process.env.REACT_APP_API_URL}/environments`, transformedValues, {
+                headers: {
+                  'Authorization': `Bearer ${userState.token}`
+                }
+              });
               if (response.status === 200 || response.status === 202) {
                 resetForm();
               }

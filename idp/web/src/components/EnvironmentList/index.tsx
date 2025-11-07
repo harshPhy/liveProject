@@ -12,6 +12,7 @@ export default function EnvironmentList(props: { environments: EnvironmentState[
           <tr className={styles.headerRow}>
             <th>Environment</th>
             <th>Application</th>
+            <th>Owner</th>
             <th>Status</th>
           </tr>
         </thead>

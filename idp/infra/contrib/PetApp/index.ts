@@ -13,21 +13,9 @@ import { IamRolePolicyAttachment } from "@cdktf/provider-aws/lib/iam-role-policy
 import { CodebuildProject } from "@cdktf/provider-aws/lib/codebuild-project";
 import { DataAwsIamPolicyDocument } from "@cdktf/provider-aws/lib/data-aws-iam-policy-document";
 import { DataAwsCallerIdentity } from "@cdktf/provider-aws/lib/data-aws-caller-identity";
-
 import { CodebuildWebhook } from "@cdktf/provider-aws/lib/codebuild-webhook";
-import { SecurityGroup } from "../../.gen/modules/security-group";
-interface PetAppStackConfig {
-  profile: string;
-  region?: string;
-  vpcId: string;
-  publicSecurityGroup: SecurityGroup;
-  appSecurityGroup: SecurityGroup;
-  publicSubnets: string[] | undefined;
-  appSubnets: string[] | undefined;
-  ecsClusterName: string | undefined;
-  repository: string;
-  branch: string;
-}
+
+import { PetAppStackConfig } from './interface'
 
 export default class PetAppStack extends TerraformStack {
   public readonly repository: EcrRepository;
@@ -45,7 +33,7 @@ export default class PetAppStack extends TerraformStack {
 
     // AWS Provider configuration
     new AwsProvider(this, "aws", {
-      region: config.region || "us-east-1",
+      region: "us-east-1",
       profile: config.profile,
     });
 
@@ -218,7 +206,7 @@ export default class PetAppStack extends TerraformStack {
             logDriver: "awslogs",
             options: {
               "awslogs-group": "/ecs/petapp",
-              "awslogs-region": config.region || "us-east-1",
+              "awslogs-region": "us-east-1",
               "awslogs-stream-prefix": "ecs",
               "awslogs-create-group": "true",
             },
@@ -379,3 +367,5 @@ phases:
     });
   }
 }
+
+export { default as getBaseConfig} from './getBaseConfig'
