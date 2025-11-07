@@ -26,4 +26,8 @@ new BaseStack(app, "hello", {
   profile: "default"
 })
 
+new BaseStack(app, "baseenv", {
+  profile: default
+})
+
 app.synth();
